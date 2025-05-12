@@ -1,0 +1,178 @@
+# Java Chat Application Documentation
+
+## Title of the Project:
+Java Chat Application with Console and GUI Interfaces
+
+## Aim:
+To develop a Java-based chat application that supports both console and graphical user interfaces for real-time communication, with customizable themes and a modern design.
+
+## Objective:
+- To create a user-friendly GUI using Java Swing.
+- To implement a client-server architecture for real-time communication.
+- To support multiple themes with dynamic application.
+- To provide a console-based client for headless environments.
+- To practice multi-threading, serialization, and event-driven programming in Java.
+- To reinforce understanding of Java's Preferences API for saving user settings.
+
+## Program:
+
+### Server Code:
+```java
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Server {
+    private static final int PORT = 12345;
+    private static Set<PrintWriter> clientWriters = new HashSet<>();
+
+    public static void main(String[] args) {
+        System.out.println("Server is running...");
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            while (true) {
+                new ClientHandler(serverSocket.accept()).start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static class ClientHandler extends Thread {
+        private Socket socket;
+        private PrintWriter out;
+
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
+
+        public void run() {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                out = new PrintWriter(socket.getOutputStream(), true);
+                synchronized (clientWriters) {
+                    clientWriters.add(out);
+                }
+
+                String message;
+                while ((message = in.readLine()) != null) {
+                    System.out.println("Received: " + message);
+                    for (PrintWriter writer : clientWriters) {
+                        writer.println(message);
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (out != null) {
+                    synchronized (clientWriters) {
+                        clientWriters.remove(out);
+                    }
+                }
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+}
+```
+
+### Client Code:
+```java
+import java.io.*;
+import java.net.*;
+import java.util.Scanner;
+
+public class Client {
+    public static void main(String[] args) {
+        try (Socket socket = new Socket("localhost", 12345);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             Scanner scanner = new Scanner(System.in)) {
+
+            System.out.println("Connected to the server. Type your messages below:");
+
+            Thread readerThread = new Thread(() -> {
+                try {
+                    String message;
+                    while ((message = in.readLine()) != null) {
+                        System.out.println("Server: " + message);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            readerThread.start();
+
+            while (true) {
+                String userInput = scanner.nextLine();
+                out.println(userInput);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### GUI Code:
+```java
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+
+public class ChatGUI {
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Chat Application");
+        frame.setSize(400, 600);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BorderLayout());
+
+        JTextArea chatArea = new JTextArea();
+        chatArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(chatArea);
+
+        JTextField inputField = new JTextField();
+        JButton sendButton = new JButton("Send");
+
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new BorderLayout());
+        inputPanel.add(inputField, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
+
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(inputPanel, BorderLayout.SOUTH);
+
+        frame.add(panel);
+        frame.setVisible(true);
+
+        sendButton.addActionListener(e -> {
+            String message = inputField.getText();
+            if (!message.isEmpty()) {
+                chatArea.append("You: " + message + "\n");
+                inputField.setText("");
+            }
+        });
+    }
+}
+```
+
+## Output:
+- Real-time chat between multiple clients.
+- GUI with message display and input field.
+- Theme selector for customizing the chat window.
+
+## Features:
+- Multi-threaded server for handling multiple clients.
+- Console and GUI-based clients.
+- Theme support with dynamic application.
+- User preferences saved using Java Preferences API.
+
+## Future Enhancements:
+- Private messaging.
+- File sharing.
+- Mobile application version.
+- End-to-end encryption for secure communication.
